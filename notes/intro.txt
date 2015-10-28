@@ -1,0 +1,150 @@
+# Apache Spark with SVD Demo
+
+Quick soup-to-nuts guide on getting spark set up
+to do the SVD demo/experiment.
+
+## Local Setup
+1. Install the following:
+  * `java` - per your OS
+  * `JAVA_HOME` should be set in your `.rc` file (`.zshrc`, `.bashrc` or similar).
+  * `lein` - see [this](https://github.com/technomancy/leiningen#installation)
+  (or e.g. homebrew)
+  * `sbt` - package manager or from [here](http://www.scala-sbt.org/download.html)
+  * update your `PATH` with the above, e.g.:
+  ```sh
+  export PATH=$JAVA_HOME/bin:/dir/with/lein:/dir/with/sbt:$PATH
+  ```
+
+2. Untar the `moot.tar.gz` file; change into `moot` dir.
+3. Build the `moot` software, via:
+```sh
+lein do clean, uberjar
+```
+4. Run the `moot` software. This will produce a small "matrix"
+file suitable for testing purposes.
+
+  Example (file `out.txt` is overwritten/created):
+  ```sh
+  java -jar target/uberjar/moot-0.1.0-SNAPSHOT-standalone.jar 10 10 .5 out.txt
+  ```
+
+5. Untar the `dennis.tar.gz` file; change into `dennis` dir.
+6. Build the `dennis` software, via:
+```sh
+sbt clean assembly
+```
+
+## Amazon Setup
+1. Install the latest spark from [here](https://spark.apache.org/downloads.html).
+Be sure to select a version that is compatible with Hadoop 2.4 (e.g., Pre-built
+for Hadoop 2.4 and later); this version is what is availabe on EC2.
+
+2. Read and follow [this section of this page](https://spark.apache.org/docs/latest/ec2-scripts.html#before-you-start).
+
+## Launch a cluster
+
+[Launch a cluster](https://spark.apache.org/docs/latest/ec2-scripts.html#launching-a-cluster).
+Max used a command like this; be aware that your `-i` will point to a
+different key (same with `-k`):
+
+```sh
+cd your/spark/root/location
+ec2/spark-ec2 -k spark-max -i ~/.ssh/spark-max.pem -s 1 launch spark-eval-one --zone=us-east-1c
+```
+
+If you see weird errors, make sure that:
+
+* your environment variables are correct (see earlier point)
+* your keys are set up correctly
+* you can access the cluster via ssh (Max does not run on APL network, so maybe
+this is an issue?)
+  * log in to EC2 console on the Amazon website for an example ssh command
+  * one from max: `ssh -i ~/.ssh/spark-max.pem root@52.4.73.234` (your IP will differ)
+
+If all goes well, you should (after some time) see a bunch of messages
+scroll by. There might be some red errors, but these can be ignored if
+related to ganglia (some logging/monitoring thing).
+
+## (Optional) Set up easy ssh
+In `~/.ssh/config`, set up something like this:
+```sh
+#################################
+### AWS - STIQS
+#################################
+host stiqs
+  hostname your-ec2-ip
+  user root
+  IdentityFile /path/to/your/key.pem
+```
+
+This makes the next few sections easier. But if you frequently
+destroy clusters, it might not be worth it, as the IPs change.
+
+## Make sure cluster is up
+In a browser, go here: `http://<master-hostname>:8080`
+
+If things are running smoothly, that should get you to some
+sort of status page.
+
+## Move data or data generator over
+Everything on this section is done on the spark master. Be sure
+that you're on the right node before proceeding.
+
+You can either move the data itself (worth `gzip`ing first), or
+the `jar` file to generate the data. For this example, just move the tiny
+data file created earlier.
+
+```sh
+gzip /path/to/out.txt
+scp /path/to/out.txt.gz stiqs:
+```
+
+As the data files grow, you might want to just move the generator.
+Max ran the generator on a 64-core machine (it uses all available
+cores), then compressed, then moved. It still takes awhile when
+the matrices get big.
+
+Obviously, if you move the `jar` file, just run the `java` command
+from earlier with your parameters. The EC2 nodes have `java` installed
+so that is taken care of.
+
+## Launch a job
+This section is run on your local machine (with spark installed). Somewhat
+confusingly, the argument is the path to the data _on the master node_.
+
+Also, if the data is compressed, be sure to uncompress before running.
+
+You can launch a job like so (from your spark install dir):
+```sh
+bin/spark-submit \
+  --class edu.jhuapl.dennis.SVDDemo \
+  --master spark://54.174.10.135:7077 \
+  /path/to/your/dennis-assembly-1.0.0-SNAPSHOT.jar \
+  /path/to/your/data.txt OUTPUT_FILE
+```
+
+You can monitor the page listed above to see how the experiment
+is going.
+
+
+### Kareem's addendum/notes
+Submitting from my laptop hasn't worked, can't access sparkMaster@xxx or whatever.
+
+Can submit from my laptop to a local[n] spark server, or can submit from master ec2 node.
+When submitting from master ec2 node, have had problems with finding the file correctly.  
+The answer is to make sure the matrix file is properly added to the ephemeral hdfs system.
+
+This is done under xxx-hdfs/bin/hadoop fs -put ~/svd/Mat.txt /Mat.txt
+xxx-hdfs/bin/hadoop fs -ls / %% will confirm
+
+Even when doing this, am now getting a strange out of bounds error.
+If matrix is smaller than 20, get k=20 error.
+
+
+Out of bounds error is because of missing second argument (output file name).
+k=20 error is because of hard-wired 20 singular values
+
+Both simply fixed.  Now can run but output is on hadoop filesystem.  Can see it via
+hadoop fs -ls /user/root
+hadoop fs -copyToLocal /user/root/Out* ~/svd/data/
+
