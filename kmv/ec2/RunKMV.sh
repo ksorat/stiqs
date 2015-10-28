@@ -11,17 +11,17 @@ POW=$4
 
 NZMAT="0.5" #Non-zero probability
 
-WORKDIR="/Users/soratka1/Work/stiqs/kmv/ec2/working"
-
+WORKDIR="/Users/soratka1/Work/stiqs/kmv/ec2/working" #Directory to be deployed to EC2 cluster
+SPEC2="~/ec2/spark-ec2" #Location of spark-ec2 script
 STUB="N$MATSIZE.NB$NUMBLOCKS.S$NUMSLAVES.P$POW"
 ID="kSpark.$STUB"
 
 #Spawn cluster
 echo "Spawning cluster $ID..."
-~/ec2/spark-ec2 --deploy-root-dir=$WORKDIR -k spark-kareem -i ~/.ssh/spark-kareem.pem -s $NUMSLAVES launch $ID -z us-east-1c
+$SPEC2 --deploy-root-dir=$WORKDIR -k spark-kareem -i ~/.ssh/spark-kareem.pem -s $NUMSLAVES launch $ID -z us-east-1c
 
 #Save master IP
-~/ec2/spark-ec2 get-master $ID | grep amazonaws > MasterIP.$STUB.txt
+$SPEC2 get-master $ID | grep amazonaws > MasterIP.$STUB.txt
 MASTERIP=`cat MasterIP.$STUB.txt`
 
 echo "Spawn complete!"
@@ -36,4 +36,4 @@ mv Log.txt Data/Log.$STUB.txt
 
 echo "Killing cluster."
 rm MasterIP.$STUB.txt
-echo "y" | ~/ec2/spark-ec2 destroy $ID
+echo "y" | $SPEC2 destroy $ID
