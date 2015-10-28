@@ -56,12 +56,15 @@ print '\t', 'M = ', M
 print '\t', 'Nonzero probability = ', p
 print '\t', 'Writing to ', fileOut
 
-np.random.seed(31337) #Always have same entries for given size
+
 
 target = open(fileOut, 'w')
+#Always have same entries for given size, but not the same seed for vec/mat
 if (M == 1):
+	np.random.seed(73313) 
 	writeVector(N,p,target)
 else:
+	np.random.seed(31337) 
 	writeMatrix(N,M,p,target)
 
 

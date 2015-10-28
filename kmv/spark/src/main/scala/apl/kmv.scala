@@ -41,7 +41,7 @@ object runkmv {
     //Now read vector
     raw = sc.textFile(VecFileIn)
     ents = raw.map{ line => line.split("\t")}.map{ iA => MatrixEntry( iA(0).toLong, 0, iA(1).toDouble)}
-    val inVeccm = new CoordinateMatrix(ents)
+    val inVeccm = new CoordinateMatrix(ents,Nr,Nc)
     val inVec = inVeccm.toBlockMatrix(Rpb,1)
 
     //Do a bunch of matrix multiplies to spend time calculating
@@ -50,13 +50,19 @@ object runkmv {
     val diags = sc.parallelize(0 to Nr-1)
     for ( n <- 2 to Npow ) {
         //Scale A
-        var sclMatcm = new CoordinateMatrix( diags.map{ d => MatrixEntry( d, d, (1.0/n) ) } )
+        val scl = 1.0/(n*n)
+        var sclMatcm = new CoordinateMatrix( diags.map{ d => MatrixEntry( d, d, scl ) }, Nr, Nc )
         var sclMat = sclMatcm.toBlockMatrix(Rpb,Cpb)
         var sclA = Apow.multiply(sclMat)
         Apow = Apow.multiply(sclA)
 
-        Mexp = Mexp.add(Apow)
+        //Apow = Apow.multiply(sclA)
+        //var Anew = Apow.multiply(Apow)
+        //var cumSum = Mexp.add(Anew)
+        //Apow = Anew
+        //Mexp = cumSum
     }
+    Mexp = Apow
     //Do matrix-vector multiply
     val outVec = Mexp.multiply(inVec)
 
