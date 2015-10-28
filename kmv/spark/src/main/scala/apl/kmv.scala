@@ -4,52 +4,71 @@ import org.apache.spark.mllib.linalg._
 import org.apache.spark.mllib.linalg.distributed._
 import org.apache.spark.{SparkConf, SparkContext}
 
-object runkmsq {
+object runkmv {
   def main(args: Array[String]) {
-    val appName = "kMSQ"
+    val appName = "kMV"
     val conf = new SparkConf().setAppName(appName)
     val sc = new SparkContext(conf)
 
+    // Usage: kmv.jar Stub Npow Nblks
     val Stub = args(0)
-    //val FileIn = Stub + ".txt.gz"
+    val Npow = args(1).toInt // Number of times to multiply matrix
+    val Nbx = args(2).toInt // Number of blocks in each dimension
+
     //For some reason, compressed input doesn't allow partitioning
-    val FileIn = Stub + ".txt"
-    val FileOut = "Sq_" + Stub 
-    val Nbx = args(1).toInt // Number of blocks in each dimension
+    val MatFileIn = Stub + "_Matrix.txt"
+    val VecFileIn = Stub + "_Vector.txt"
+    val FileOut = "Outvec_" + Stub
 
-    val raw = sc.textFile(FileIn) //Get raw data
-    val aijs = raw.map{ line => line.split("\t")} //Split into 3-tuples, i,j,Aij
-    //Map 3-tuples into collection of MatrixEntry's
-    val ents = aijs.map{ ijA => MatrixEntry( ijA(0).toLong, ijA(1).toLong, ijA(2).toDouble)}
-    val nzents = ents.filter{ anent => anent.value != 0 } // Pull zeros
-    val numnz = nzents.count()
+    //Read matrix
+    var raw = sc.textFile(MatFileIn) //Get raw data
 
-    //Build distributed coordinate matrix, then convert to block matrix
-    //Note, this is inefficient and should be improved
-    val cMat = new CoordinateMatrix(nzents)
+    var ents = raw.map{ line => line.split("\t")}.map{ ijA => MatrixEntry( ijA(0).toLong, ijA(1).toLong, ijA(2).toDouble)}
+    //var nzents = ents.filter{ anent => anent.value != 0 } // Pull zeros
 
-    val Nc = cMat.numCols().toInt
-    val Nr = cMat.numRows().toInt
-    val nzfrac = 1.0*numnz/(Nc*Nr)
-
+    val inMatcm = new CoordinateMatrix(ents)
+    val Nr = inMatcm.numRows().toInt
+    val Nc = inMatcm.numCols().toInt
     val Rpb = (Nr/Nbx).toInt
-    val Cpb = (Nc/Nbx).toInt
+    val Cpb = (Nr/Nbx).toInt
     println("kLog -/- Input matrix is size : ( " + Nr + " , " + Nc + " )")
-    println("kLog -/- Nonzero fraction = " + nzfrac )
+    println("kLog -/- Raising input matrix to power : " + Npow)
     println("kLog -/- Using " + Nbx + " blocks in each dimension")
-    val bMat = cMat.toBlockMatrix(Rpb, Cpb)
+ 
+    //Convert to block matrix
+    val inMat = inMatcm.toBlockMatrix(Rpb,Cpb)
 
-    //Calculate matrix square
-    val bbMat = bMat.multiply(bMat)
-    //val outDat = bbMat.blocks
+    //Now read vector
+    raw = sc.textFile(VecFileIn)
+    ents = raw.map{ line => line.split("\t")}.map{ iA => MatrixEntry( iA(0).toLong, 0, iA(1).toDouble)}
+    val inVeccm = new CoordinateMatrix(ents)
+    val inVec = inVeccm.toBlockMatrix(Rpb,1)
 
-    //Put back into coordinate matrix
-    val cMatOut = bbMat.toCoordinateMatrix()
-    //Peel out entries and prep for write-out
-    val entsOut = cMat.entries // Only non-zero come out
-    val outLines = entsOut.map{ anent => anent.i.toString + " " + anent.j.toString + " " + anent.value}
-    //Writing out compressed data doesn't mess up partitioning
-    outLines.saveAsTextFile(FileOut,classOf[org.apache.hadoop.io.compress.GzipCodec])
-    //outLines.saveAsTextFile(FileOut)
+    //Do a bunch of matrix multiplies to spend time calculating
+    var Apow = inMat
+    var Mexp = inMat
+    val diags = sc.parallelize(0 to Nr-1)
+    for ( n <- 2 to Npow ) {
+        //Scale A
+        var sclMatcm = new CoordinateMatrix( diags.map{ d => MatrixEntry( d, d, (1.0/n) ) } )
+        var sclMat = sclMatcm.toBlockMatrix(Rpb,Cpb)
+        var sclA = Apow.multiply(sclMat)
+        Apow = Apow.multiply(sclA)
+
+        Mexp = Mexp.add(Apow)
+    }
+    //Do matrix-vector multiply
+    val outVec = Mexp.multiply(inVec)
+
+    //Pull out entries from resultant vector
+    val entsOut = outVec.toCoordinateMatrix().entries
+    val outLines = entsOut.map{ anent => anent.i.toString + "\t" + anent.value}
+
+    //Save to disk and get outta here
+    //Writing out compressed doesn't mess up partitioning if you want to use it
+    //outLines.saveAsTextFile(FileOut,classOf[org.apache.hadoop.io.compress.GzipCodec])
+    outLines.saveAsTextFile(FileOut)
+
+   
    }
 }
