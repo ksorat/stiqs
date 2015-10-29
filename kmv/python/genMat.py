@@ -10,7 +10,7 @@ def genColumn(N,p):
 	ind = np.array(indr)
 
 	Chk = (nz>=p)
-	vals = nzval[Chk]
+	vals = 2.0 *( nzval[Chk] - 0.5 )
 	ind = ind[Chk]
 
 	return (ind,vals)	
