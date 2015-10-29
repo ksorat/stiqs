@@ -4,12 +4,12 @@
 #NUMSLAVES="24"
 #MATSIZE="50000" #Matrix is NxN
 #NUMBLOCKS="10" #Number of blocks in each dimension
+NZMAT="0.5" #Non-zero probability
+
 NUMSLAVES=$1
 MATSIZE=$2
 NUMBLOCKS=$3
 POW=$4
-
-NZMAT="0.5" #Non-zero probability
 
 WORKDIR="/Users/soratka1/Work/stiqs/kmv/ec2/working" #Directory to be deployed to EC2 cluster
 SPEC2="~/ec2/spark-ec2" #Location of spark-ec2 script
