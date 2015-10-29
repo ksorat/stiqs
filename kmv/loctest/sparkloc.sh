@@ -1,5 +1,5 @@
 #!/bin/bash
-NUMPOW=50
+NUMPOW=25
 NUMBLK=4
 STUB="Test"
 spark-submit --class apl.stiqs.runkmv --master local[2] kmv.jar $STUB $NUMPOW $NUMBLK &> Log.txt

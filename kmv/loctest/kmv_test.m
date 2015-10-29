@@ -28,6 +28,7 @@ res.true = norm(Evs-Ev)/norm(Ev);
 
 fprintf('Relative error between Matlab/Spark approximations = %e\n', res.app);
 fprintf('Relative error between Spark/Real answer = %e\n', res.true);
+fprintf('Norm of true answer = %e\n', norm(Ev));
 
 function Eap = expmApprox(A,Npow)
 [N M] = size(A);

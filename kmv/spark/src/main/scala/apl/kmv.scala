@@ -23,9 +23,8 @@ object runkmv {
 
     //Add via identifying same ij's
     var ABijs = Aijs.union(Bijs)
-    var Tuples = ABijs.map{ ABij => ( ( ABij.i, ABij.j ), ABij.value )}
-    var RedTuples = Tuples.reduceByKey(_ + _)
-    var Sijs = RedTuples.map{ Sij => MatrixEntry( Sij._1._1, Sij._1._2, Sij._2)}
+    var Tuples = ABijs.map{ ABij => ( ( ABij.i, ABij.j ), ABij.value )}.reduceByKey(_ + _)
+    var Sijs = Tuples.map{ Sij => MatrixEntry( Sij._1._1, Sij._1._2, Sij._2)}
     var Scm = new CoordinateMatrix(Sijs)
     Scm.toBlockMatrix(Rpb,Cpb)
 
