@@ -11,29 +11,33 @@ MATSIZE=$2
 NUMBLOCKS=$3
 POW=$4
 
+export PADSLAVES=`printf %03d $NUMSLAVES`
 WORKDIR="/Users/soratka1/Work/stiqs/kmv/ec2/working" #Directory to be deployed to EC2 cluster
-SPEC2="~/ec2/spark-ec2" #Location of spark-ec2 script
-STUB="N$MATSIZE.NB$NUMBLOCKS.S$NUMSLAVES.P$POW"
+SPEC2="/Users/soratka1/ec2/spark-ec2" #Location of spark-ec2 script
+STUB="N$MATSIZE.Np$POW.S$PADSLAVES.Nb$NUMBLOCKS"
 ID="kSpark.$STUB"
 
 #Spawn cluster
-echo "Spawning cluster $ID..."
+echo "Spawning cluster $ID ..."
 $SPEC2 --deploy-root-dir=$WORKDIR -k spark-kareem -i ~/.ssh/spark-kareem.pem -s $NUMSLAVES launch $ID -z us-east-1c
-
+echo "Finished spawning cluster $ID !"
 #Save master IP
 $SPEC2 get-master $ID | grep amazonaws > MasterIP.$STUB.txt
 MASTERIP=`cat MasterIP.$STUB.txt`
+echo "Master node for $ID is $MASTERIP"
+#scp files from working because stupid deploy-root doesn't follow sym-links
+scp -o StrictHostKeyChecking=no -i ~/.ssh/spark-kareem.pem $WORKDIR/*  root@$MASTERIP:/working/
 
-echo "Spawn complete!"
-echo "Master node is $MASTERIP"
-
-echo "Prepping master ... "
+echo "Prepping master node for $ID ... "
 ssh -o StrictHostKeyChecking=no -i ~/.ssh/spark-kareem.pem root@$MASTERIP 'bash -s' < remote.sh $MATSIZE $NZMAT $NUMBLOCKS $POW
 
-echo "Run finished, shutting down."
-scp -o StrictHostKeyChecking=no -i ~/.ssh/spark-kareem.pem root@$MASTERIP:~/Log.txt .
-mv Log.txt Data/Log.$STUB.txt
+echo "Run $ID finished, shutting down."
+scp -o StrictHostKeyChecking=no -i ~/.ssh/spark-kareem.pem root@$MASTERIP:~/Log.txt Log.$STUB.txt
 
-echo "Killing cluster."
+mv Log.$STUB.txt Data/
+
+echo "Killing cluster $ID !"
 rm MasterIP.$STUB.txt
 echo "y" | $SPEC2 destroy $ID
+
+echo "Finished run $ID"
