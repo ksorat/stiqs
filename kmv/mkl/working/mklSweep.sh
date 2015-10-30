@@ -17,7 +17,7 @@ for i in `seq 0 4 24`;
 	do
 		
 		export T=`printf %03d $i`
-		export LOGFILE="Log.N$SIZE.$POW.T$T.txt"
+		export LOGFILE="Log.N$SIZE.Np$POW.T$T.txt"
 		echo "Running with $i threads"
 		echo "Saving lot to $LOGFILE"
 		export OMP_NUM_THREADS=$i
