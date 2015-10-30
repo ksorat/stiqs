@@ -1,4 +1,4 @@
-!#/bin/bash
+#!/bin/bash
 
 #Creates matrix/vector for testing
 STUB=$1
