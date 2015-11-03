@@ -8,10 +8,13 @@
 #SBATCH --ntasks-per-node=1
 #SBATCH --exclusive
 
+export STUB="Prod20k"
 export SIZE=20000
 export POW=20
-export STUB="Prod20k"
+export PNZ=0.5
 export KMP_AFFINITY=verbose,granularity=core
+
+conmv.sh $STUB $SIZE $PNZ
 
 for i in `seq 0 4 24`;
 	do
