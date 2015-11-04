@@ -77,17 +77,20 @@ object runkmv {
     //Ie, exp(A) = sum_i [ A^{n}/n!]
     // exp(A) = sum_i [ M_n ], M_1 = A, M_{n+1} = M_{n}* A/(n+1)
     var Apow = inMat
-    var Mexp = AddBM(inMat,Eye)
-    
+    Apow.cache()
+    //var Mexp = AddBM(Apow,Eye) //Uses my (likely slower) routine
+    //var Mexp = Apow.add(Eye)
     for ( n <- 2 to Npow ) {
-        //Scale A (origina matrix, held in Ments)
+        //Scale A (original matrix, held in Ments)
         var sclAcm = new CoordinateMatrix( Ments.map{ ijA => MatrixEntry( ijA.i, ijA.j, 1.0*ijA.value/n )})
         var sclA = sclAcm.toBlockMatrix(Rpb,Cpb)
         Apow = Apow.multiply(sclA)
-        Mexp = AddBM(Mexp,Apow)
+        //Mexp = AddBM(Mexp,Apow)
+        //Mexp = Mexp.add(Apow)
     }
     
     //Do matrix-vector multiply
+    var Mexp = Apow //This avoids the adds and only looks at the nth element of the series
     val outVec = Mexp.multiply(inVec)
 
     //Pull out entries from resultant vector
