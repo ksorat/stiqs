@@ -8,14 +8,22 @@ import org.apache.spark.mllib.linalg._
 import org.apache.spark.mllib.linalg.distributed._
 import org.apache.spark.{SparkConf, SparkContext}
 
+
 object runkmv {
+    def AddW( A: BlockMatrix, B: BlockMatrix): BlockMatrix = {
+        //Wrapper for adding matrices
+        // Either use my (slow) routine, built-in (broken) routine, or just return first arg
+        //AddBM(A,B)
+        //A.add(B)
+        A
+    }
     //Defining own block matrix add because of weird behavior in Spark default
     //Note, this is not optimal and should be replaced
   def AddBM( A: BlockMatrix , B: BlockMatrix ): BlockMatrix = {
 
     //Assume both matrices have same decomposition
-    var Rpb = A.rowsPerBlock
-    var Cpb = A.colsPerBlock
+    var Xpb = A.rowsPerBlock
+    //var Cpb = A.colsPerBlock
 
     //Peel to entries
     var Aijs = A.toCoordinateMatrix.entries
@@ -26,9 +34,34 @@ object runkmv {
     var Tuples = ABijs.map{ ABij => ( ( ABij.i, ABij.j ), ABij.value )}.reduceByKey(_ + _)
     var Sijs = Tuples.map{ Sij => MatrixEntry( Sij._1._1, Sij._1._2, Sij._2)}
     var Scm = new CoordinateMatrix(Sijs)
-    Scm.toBlockMatrix(Rpb,Cpb)
+    Scm.toBlockMatrix(Xpb,Xpb)
 
   }
+  def ScaleMatrix_l( A: BlockMatrix, d: Double, sc: SparkContext): BlockMatrix = {
+    var Xpb = A.rowsPerBlock
+    //var Cpb = A.colsPerBlock
+
+    var Aents = A.toCoordinateMatrix().entries
+    var SclAents = Aents.map{ent => new MatrixEntry( ent.i, ent.j, d*ent.value)}
+    var SclAcm = new CoordinateMatrix(SclAents)
+    SclAcm.toBlockMatrix(Xpb,Xpb)
+
+  }
+  def ScaleMatrix_L( A: BlockMatrix, d: Double, sc: SparkContext): BlockMatrix = {
+    // Scale via multiplication by diagonal matrix
+    var Xpb = A.rowsPerBlock
+    //var Cpb = A.colsPerBlock
+
+    A.multiply( GenDiag( A.numRows().toInt, d, Xpb, sc ) )
+
+
+  }  
+  def GenDiag( N: Int, d: Double, Xpb: Int, sc: SparkContext): BlockMatrix = {
+    var diags = sc.parallelize(0 to N-1)
+    var Lamcm = new CoordinateMatrix( diags.map{ i => MatrixEntry(i,i,d)}, N, N )
+    Lamcm.toBlockMatrix(Xpb,Xpb)
+  }
+  
   def main(args: Array[String]) {
     val appName = "kMV"
     val conf = new SparkConf().setAppName(appName)
@@ -53,44 +86,37 @@ object runkmv {
     val inMatcm = new CoordinateMatrix(Ments)
     val Nr = inMatcm.numRows().toInt
     val Nc = inMatcm.numCols().toInt
-    val Rpb = (Nr/Nbx).toInt
-    val Cpb = (Nr/Nbx).toInt
+    val N = Nr //Assuming square matrix
+    val Xpb = (N/Nbx).toInt //Rpb = Cpb
+    
     println("kLog -/- Input matrix is size : ( " + Nr + " , " + Nc + " )")
     println("kLog -/- Raising input matrix to power : " + Npow)
     println("kLog -/- Using " + Nbx + " blocks in each dimension")
  
     //Convert to block matrix
-    val inMat = inMatcm.toBlockMatrix(Rpb,Cpb)
+    val inMat = inMatcm.toBlockMatrix(Xpb,Xpb)
 
     //Now read vector
     raw = sc.textFile(VecFileIn)
     val Vents = raw.map{ line => line.split("\t")}.map{ iA => MatrixEntry( iA(0).toLong, 0, iA(1).toDouble)}
-    val inVeccm = new CoordinateMatrix(Vents,Nr,Nc)
-    val inVec = inVeccm.toBlockMatrix(Rpb,1)
+    val inVeccm = new CoordinateMatrix(Vents,N,1)
+    val inVec = inVeccm.toBlockMatrix(Xpb,1)
 
-    //Construct identity matrix
-    val diags = sc.parallelize(0 to Nr-1)
-    val Eyecm = new CoordinateMatrix( diags.map{ d => MatrixEntry(d, d, 1.0)},Nr,Nc )
-    val Eye = Eyecm.toBlockMatrix(Rpb,Cpb)
     //Do a bunch of matrix multiplies to spend time calculating
     //Calculate consecutive terms in matrix exponent
     //Ie, exp(A) = sum_i [ A^{n}/n!]
     // exp(A) = sum_i [ M_n ], M_1 = A, M_{n+1} = M_{n}* A/(n+1)
     var Apow = inMat
     Apow.cache()
-    //var Mexp = AddBM(Apow,Eye) //Uses my (likely slower) routine
-    //var Mexp = Apow.add(Eye)
+    var Mexp = AddW(Apow, GenDiag(N, 1.0, Xpb, sc)) //First two terms (0/1)
     for ( n <- 2 to Npow ) {
-        //Scale A (original matrix, held in Ments)
-        var sclAcm = new CoordinateMatrix( Ments.map{ ijA => MatrixEntry( ijA.i, ijA.j, 1.0*ijA.value/n )})
-        var sclA = sclAcm.toBlockMatrix(Rpb,Cpb)
+        //Scale A (original matrix, held in Ments/inMat
+        var sclA = ScaleMatrix_L(inMat, 1.0/n , sc)
         Apow = Apow.multiply(sclA)
-        //Mexp = AddBM(Mexp,Apow)
-        //Mexp = Mexp.add(Apow)
+        Mexp = AddW(Apow,Mexp)
     }
     
     //Do matrix-vector multiply
-    var Mexp = Apow //This avoids the adds and only looks at the nth element of the series
     val outVec = Mexp.multiply(inVec)
 
     //Pull out entries from resultant vector
@@ -99,8 +125,8 @@ object runkmv {
 
     //Save to disk and get outta here
     //Writing out compressed doesn't mess up partitioning if you want to use it
-    //outLines.saveAsTextFile(FileOut,classOf[org.apache.hadoop.io.compress.GzipCodec])
-    outLines.saveAsTextFile(FileOut)
+    outLines.saveAsTextFile(FileOut,classOf[org.apache.hadoop.io.compress.GzipCodec])
+    //outLines.saveAsTextFile(FileOut)
 
    
    }
