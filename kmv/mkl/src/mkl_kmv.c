@@ -90,7 +90,7 @@ int main( int argc, char *argv[] )
 	} 
 
 	// Exp = I
-	cblas_daxpy(N*N, alpha, A, 1, Exp, 1); //Exp = I+A
+	//cblas_daxpy(N*N, alpha, A, 1, Exp, 1); //Exp = I+A
 
 	//En = A, set during read
 	
@@ -104,9 +104,10 @@ int main( int argc, char *argv[] )
 		cblas_dcopy(N*N, Ent, 1, En, 1);
 
 		//Exp = Exp + En
-		cblas_daxpy(N*N, alpha, En, 1, Exp, 1);
+		//cblas_daxpy(N*N, alpha, En, 1, Exp, 1);
 	}
 	//Now, calculate Exp*v = Ev
+	cblas_dcopy(N*N, En, 1, Exp, 1); //Put Exp = En to avoid add
 	cblas_dgemv(CblasRowMajor, CblasNoTrans, N, N, alpha , Exp, N, v, 1, beta, Ev, 1);
 	
 	stop = omp_get_wtime() - start;

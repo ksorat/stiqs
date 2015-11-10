@@ -1,10 +1,10 @@
 #!/bin/bash
 
-MATSIZE=500
-POW=4
-for np in 2 4
+MATSIZE=10000
+POW=10
+for np in 4 8
 	do
-		for nb in 4
+		for nb in 8
 			do
 				echo "Slaves = $np / # of blocks = $nb"
 				RunKMV.sh $np $MATSIZE $nb $POW &

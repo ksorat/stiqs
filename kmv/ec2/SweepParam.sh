@@ -1,7 +1,7 @@
 #!/bin/bash
 
-MATSIZE=20000
-POW=20
+MATSIZE=10000
+POW=10
 for np in 2 4 8 16 32 64 128
 	do
 		for nb in 8 16

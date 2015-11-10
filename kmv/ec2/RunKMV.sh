@@ -11,15 +11,18 @@ MATSIZE=$2
 NUMBLOCKS=$3
 POW=$4
 
+#TYPE="m1.large"
+TYPE="c3.large"
 export PADSLAVES=`printf %03d $NUMSLAVES`
 WORKDIR="/Users/soratka1/Work/stiqs/kmv/ec2/working" #Directory to be deployed to EC2 cluster
-SPEC2="/Users/soratka1/ec2/spark-ec2" #Location of spark-ec2 script
+#SPEC2="/Users/soratka1/ec2/spark-ec2" #Location of spark-ec2 script
+SPEC2="/Users/soratka1/Spark-1.5.1/ec2/spark-ec2" #Location of spark-ec2 script
 STUB="N$MATSIZE.Np$POW.S$PADSLAVES.Nb$NUMBLOCKS"
 ID="kSpark.$STUB"
 
 #Spawn cluster
 echo "Spawning cluster $ID ..."
-$SPEC2 --deploy-root-dir=$WORKDIR -k spark-kareem -i ~/.ssh/spark-kareem.pem -s $NUMSLAVES launch $ID -z us-east-1c
+$SPEC2 --deploy-root-dir=$WORKDIR -k spark-kareem -i ~/.ssh/spark-kareem.pem --no-ganglia -t $TYPE -s $NUMSLAVES launch $ID -z us-east-1c
 echo "Finished spawning cluster $ID !"
 #Save master IP
 $SPEC2 get-master $ID | grep amazonaws > MasterIP.$STUB.txt

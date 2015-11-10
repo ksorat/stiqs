@@ -8,9 +8,9 @@
 #SBATCH --ntasks-per-node=1
 #SBATCH --exclusive
 
-export STUB="Prod20k"
-export SIZE=20000
-export POW=20
+export STUB="Test1k"
+export SIZE=1000
+export POW=10
 export PNZ=0.5
 export KMP_AFFINITY=verbose,granularity=core
 

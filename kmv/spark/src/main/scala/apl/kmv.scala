@@ -107,12 +107,13 @@ object runkmv {
     //Ie, exp(A) = sum_i [ A^{n}/n!]
     // exp(A) = sum_i [ M_n ], M_1 = A, M_{n+1} = M_{n}* A/(n+1)
     var Apow = inMat
-    Apow.cache()
     var Mexp = AddW(Apow, GenDiag(N, 1.0, Xpb, sc)) //First two terms (0/1)
+    inMat.cache()
+    Apow.cache()    
+    Mexp.cache()
     for ( n <- 2 to Npow ) {
         //Scale A (original matrix, held in Ments/inMat
-        var sclA = ScaleMatrix_L(inMat, 1.0/n , sc)
-        Apow = Apow.multiply(sclA)
+        Apow = Apow.multiply( ScaleMatrix_L(inMat, 1.0/n, sc) ) 
         Mexp = AddW(Apow,Mexp)
     }
     
@@ -125,8 +126,8 @@ object runkmv {
 
     //Save to disk and get outta here
     //Writing out compressed doesn't mess up partitioning if you want to use it
-    outLines.saveAsTextFile(FileOut,classOf[org.apache.hadoop.io.compress.GzipCodec])
-    //outLines.saveAsTextFile(FileOut)
+    //outLines.saveAsTextFile(FileOut,classOf[org.apache.hadoop.io.compress.GzipCodec])
+    outLines.saveAsTextFile(FileOut)
 
    
    }
