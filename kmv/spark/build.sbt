@@ -8,19 +8,20 @@ version := "1.0.0"
 
 organization := "apl"
 
-scalaVersion := "2.10.5"
+scalaVersion := "2.11.7"
 
-libraryDependencies ++= Seq(
-  "org.apache.spark" %% "spark-core" % "1.4.0" % "provided",
-  "org.apache.spark" %% "spark-mllib" % "1.4.0" % "provided",
-  "com.github.scopt" %% "scopt" % "3.2.0"
-)
+libraryDependencies += "com.github.scopt" %% "scopt" % "3.2.0"
+libraryDependencies += "org.apache.spark" %% "spark-core" % "1.4.1" % "provided"
+libraryDependencies += "org.apache.spark" %% "spark-mllib" % "1.4.1" % "provided"
+//libraryDependencies ++= Seq(
+//  "org.apache.spark" %% "spark-core" % "1.4.0" % "provided",
+//  "org.apache.spark" %% "spark-mllib" % "1.4.0" % "provided",
+//  "com.github.scopt" %% "scopt" % "3.2.0"
+//)
 
-// initialCommands in console := "import edu.jhu.hlt.vortex._; import edu.jhu.hlt.vortex.data._"
 
 resolvers += "Local Maven Repository" at "file://"+Path.userHome+"/.m2/repository"
 
-// addSbtPlugin("org.ensime" % "ensime-sbt" % "0.1.5-SNAPSHOT")
 
 publishTo := Some(Resolver.file("file",  new File(Path.userHome.absolutePath+"/.m2/repository")))
 
