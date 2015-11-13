@@ -39,7 +39,6 @@ object runkmv {
   }
   def ScaleMatrix_l( A: BlockMatrix, d: Double, sc: SparkContext): BlockMatrix = {
     var Xpb = A.rowsPerBlock
-    //var Cpb = A.colsPerBlock
 
     var Aents = A.toCoordinateMatrix().entries
     var SclAents = Aents.map{ent => new MatrixEntry( ent.i, ent.j, d*ent.value)}
@@ -50,16 +49,42 @@ object runkmv {
   def ScaleMatrix_L( A: BlockMatrix, d: Double, sc: SparkContext): BlockMatrix = {
     // Scale via multiplication by diagonal matrix
     var Xpb = A.rowsPerBlock
-    //var Cpb = A.colsPerBlock
+    
 
     A.multiply( GenDiag( A.numRows().toInt, d, Xpb, sc ) )
-
 
   }  
   def GenDiag( N: Int, d: Double, Xpb: Int, sc: SparkContext): BlockMatrix = {
     var diags = sc.parallelize(0 to N-1)
     var Lamcm = new CoordinateMatrix( diags.map{ i => MatrixEntry(i,i,d)}, N, N )
     Lamcm.toBlockMatrix(Xpb,Xpb)
+  }
+  def Unlazy( A: BlockMatrix ) {
+    var nzents = A.toCoordinateMatrix().entries.count()
+    var Nr = A.numRows()
+    var Nc = A.numCols()
+    println("Matrix density is " + 1.0*nzents/(Nc*Nr))
+  }
+
+  def WriteOut( A: BlockMatrix, Stub: String ) {
+    val Nr = A.numRows()
+    val Nc = A.numCols()
+    var ents = A.toCoordinateMatrix().entries
+
+    if (Nc == 1) {
+        var FileOut = "Outvec_" + Stub
+        var outLines = ents.map{ anent => anent.i.toString + "\t" + anent.value.toString}   
+        outLines.saveAsTextFile(FileOut) 
+    } else {
+        var FileOut = "Outmat_" + Stub
+        var outLines = ents.map{ anent => anent.i.toString + "\t" + anent.j.toString + "\t" + anent.value.toString}    
+        //outLines.saveAsTextFile(FileOut)
+        outLines.saveAsTextFile(FileOut,classOf[org.apache.hadoop.io.compress.GzipCodec])
+    }
+    //Save to disk and get outta here
+    //Writing out compressed doesn't mess up partitioning if you want to use it
+    //
+    
   }
   
   def main(args: Array[String]) {
@@ -75,7 +100,7 @@ object runkmv {
     //For some reason, compressed input doesn't allow partitioning
     val MatFileIn = Stub + "_Matrix.txt"
     val VecFileIn = Stub + "_Vector.txt"
-    val FileOut = "Outvec_" + Stub
+    
 
     //Read matrix
     var raw = sc.textFile(MatFileIn) //Get raw data
@@ -117,18 +142,12 @@ object runkmv {
         Mexp = AddW(Apow,Mexp)
     }
     
-    //Do matrix-vector multiply
-    val outVec = Mexp.multiply(inVec)
+    //Do matrix-vector multiply / write data
+    val outVec = Mexp.multiply(inVec)   
+    WriteOut(outVec,Stub)
 
-    //Pull out entries from resultant vector
-    val entsOut = outVec.toCoordinateMatrix().entries
-    val outLines = entsOut.map{ anent => anent.i.toString + "\t" + anent.value.toString}
-
-    //Save to disk and get outta here
-    //Writing out compressed doesn't mess up partitioning if you want to use it
-    //outLines.saveAsTextFile(FileOut,classOf[org.apache.hadoop.io.compress.GzipCodec])
-    outLines.saveAsTextFile(FileOut)
-
+    //Just write matrix
+    //WriteOut(Mexp,Stub)
    
    }
 }

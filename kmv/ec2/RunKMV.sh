@@ -16,7 +16,8 @@ TYPE="c3.large"
 export PADSLAVES=`printf %03d $NUMSLAVES`
 WORKDIR="/Users/soratka1/Work/stiqs/kmv/ec2/working" #Directory to be deployed to EC2 cluster
 #SPEC2="/Users/soratka1/ec2/spark-ec2" #Location of spark-ec2 script
-SPEC2="/Users/soratka1/Spark-1.5.1/ec2/spark-ec2" #Location of spark-ec2 script
+#SPEC2="/Users/soratka1/Spark-1.5.1/ec2/spark-ec2" #Location of spark-ec2 script
+SPEC2="/Users/soratka1/spark-1.5.1-bin-hadoop2.4/ec2/spark-ec2"
 STUB="N$MATSIZE.Np$POW.S$PADSLAVES.Nb$NUMBLOCKS"
 ID="kSpark.$STUB"
 
